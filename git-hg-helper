@@ -201,7 +201,7 @@ class GitHgRepo:
         def __init__(self, repo, files):
             p1, p2, data = repo[None], '0' * 40, ''
             context.memctx.__init__(self, repo, (p1, p2),
-                data, files.keys(), self.getfilectx)
+                data, list(files.keys()), self.getfilectx)
             self.files = files
             self.remotehg = import_sibling('remotehg', 'git-remote-hg')
             self.remotehg.hg_version = hg_version
@@ -322,7 +322,7 @@ class HgRevCommand(SubCommand):
         if len(args):
             hgrev = self.githgrepo.get_hg_rev(args[0])
             if hgrev:
-                print hgrev
+                print(hgrev)
 
 
 class GitMarks:
@@ -347,7 +347,7 @@ class GitMarks:
             self.rev_marks[m] = c
 
     def store(self):
-        marks = self.rev_marks.keys()
+        marks = list(self.rev_marks.keys())
         marks.sort()
         with open(self.path, 'w') as f:
             for m in marks:
@@ -375,7 +375,7 @@ class GitRevCommand(SubCommand):
             rev = args[0]
             gitcommit = self.githgrepo.get_git_commit(rev)
             if gitcommit:
-                print gitcommit
+                print(gitcommit)
 
 
 class GcCommand(SubCommand):
@@ -407,7 +407,7 @@ class GcCommand(SubCommand):
         return p
 
     def print_commits(self, gm, dest):
-        for c in gm.marks.keys():
+        for c in list(gm.marks.keys()):
             dest.write(c + '\n')
         dest.flush()
         dest.close()
@@ -422,15 +422,15 @@ class GcCommand(SubCommand):
             if not remote in hg_repos:
                 self.usage('%s is not a valid hg remote' % (remote))
             hgpath = remotehg.select_marks_dir(remote, self.githgrepo.gitdir, False)
-            print "Loading hg marks ..."
+            print("Loading hg marks ...")
             hgm = remotehg.Marks(os.path.join(hgpath, 'marks-hg'), None)
-            print "Loading git marks ..."
+            print("Loading git marks ...")
             gm = GitMarks(os.path.join(hgpath, 'marks-git'))
             repo = hg.repository(ui.ui(), hg_repos[remote]) if options.check_hg else None
             # git-gc may have dropped unreachable commits
             # (in particular due to multiple hg head cases)
             # need to drop those so git-fast-export or git-fast-import does not complain
-            print "Performing garbage collection on git commits ..."
+            print("Performing garbage collection on git commits ...")
             process = self.githgrepo.start_cmd(['cat-file', '--batch-check'], \
                 stdin=subprocess.PIPE)
             thread = threading.Thread(target=self.print_commits, args=(gm, process.stdin))
@@ -442,7 +442,7 @@ class GcCommand(SubCommand):
                     git_marks.add(gm.from_rev(sp[0]))
             thread.join()
             # reduce down to marks that are common to both
-            print "Computing marks intersection ..."
+            print("Computing marks intersection ...")
             common_marks = set(hgm.rev_marks.keys()).intersection(git_marks)
             hg_rev_marks = {}
             git_rev_marks = {}
@@ -453,7 +453,7 @@ class GcCommand(SubCommand):
                 git_rev_marks[m] = gm.rev_marks[m]
             # common marks will not not include any refs/notes/hg
             # let's not discard those casually, though they are not vital
-            print "Including notes commits ..."
+            print("Including notes commits ...")
             revlist = self.githgrepo.start_cmd(['rev-list', 'refs/notes/hg'])
             for l in revlist.stdout.readlines():
                 c = l.strip()
@@ -465,24 +465,24 @@ class GcCommand(SubCommand):
                 git_rev_marks[hgm.last_note] = gm.rev_marks[hgm.last_note]
             # some status report
             if len(hgm.rev_marks) != len(hg_rev_marks):
-                print "Trimmed hg marks from #%d down to #%d" % (len(hgm.rev_marks), len(hg_rev_marks))
+                print("Trimmed hg marks from #%d down to #%d" % (len(hgm.rev_marks), len(hg_rev_marks)))
             if len(gm.rev_marks) != len(git_rev_marks):
-                print "Trimmed git marks from #%d down to #%d" % (len(gm.rev_marks), len(git_rev_marks))
+                print("Trimmed git marks from #%d down to #%d" % (len(gm.rev_marks), len(git_rev_marks)))
             # marks-hg tips irrelevant nowadays
             # now update and store
             if not options.dry_run:
                 # hg marks
-                print "Writing hg marks ..."
+                print("Writing hg marks ...")
                 hgm.rev_marks = hg_rev_marks
                 hgm.marks = {}
-                for mark, rev in hg_rev_marks.iteritems():
+                for mark, rev in hg_rev_marks.items():
                     hgm.marks[rev] = mark
                 hgm.store()
                 # git marks
-                print "Writing git marks ..."
+                print("Writing git marks ...")
                 gm.rev_marks = git_rev_marks
                 gm.marks = {}
-                for mark, rev in git_rev_marks.iteritems():
+                for mark, rev in git_rev_marks.items():
                     gm.marks[rev] = mark
                 gm.store()
 
@@ -640,7 +640,7 @@ class SubRepoCommand(SubCommand):
         log('running %s with options %s in context %s', \
             options.func, options, ctx)
         subrepos = ctx.repo.state(options.remote)
-        paths = subrepos.keys()
+        paths = list(subrepos.keys())
         selabspaths = None
         if ctx.level == 0 and hasattr(options, 'paths') and options.paths:
             selabspaths = [ os.path.abspath(p) for p in options.paths ]
@@ -698,7 +698,7 @@ class SubRepoCommand(SubCommand):
             die('no .hgsubstate found in repo %s' % ctx.repo.topdir)
         if orig != rev:
             short = ctx.subrepo.rev_parse(['--short', gitcommit])
-            print "Updating %s to %s [git %s]" % (ctx.subpath, rev, short)
+            print("Updating %s to %s [git %s]" % (ctx.subpath, rev, short))
             # replace and update index
             with open(state_path, 'r') as f:
                 state = f.read()
@@ -710,7 +710,7 @@ class SubRepoCommand(SubCommand):
         if not ctx.subrepo:
             return
         if not options.quiet:
-            print 'Entering %s' % ctx.subpath
+            print('Entering %s' % ctx.subpath)
             sys.stdout.flush()
         newenv = os.environ.copy()
         newenv['path'] = ctx.relpath
@@ -775,7 +775,7 @@ class SubRepoCommand(SubCommand):
             revname = ctx.subrepo.rev_describe(gitcommit)
             if revname:
                 revname = ' (%s)' % revname
-        print "%s%s %s%s" % (state, gitcommit, ctx.subpath, revname)
+        print("%s%s %s%s" % (state, gitcommit, ctx.subpath, revname))
 
     def cmd_sync(self, options, args, ctx):
         if not ctx.subrepo:
@@ -801,7 +801,7 @@ class RepoCommand(SubCommand):
         (remote, args) = self.get_remote(args)
         repos = self.githgrepo.get_hg_repos()
         if remote in repos:
-            print repos[remote].rstrip('/')
+            print(repos[remote].rstrip('/'))
 
 
 class HgCommand(SubCommand):
@@ -897,7 +897,7 @@ def init_git(gitdir=None):
 
     try:
         githgrepo = GitHgRepo(gitdir=gitdir)
-    except Exception, e:
+    except Exception as e:
         die(str(e))
 
 def init_logger():
